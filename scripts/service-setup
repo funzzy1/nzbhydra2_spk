@@ -1,0 +1,48 @@
+### Package specific variables and functions
+# Base service USER to run background process prefixed according to DSM
+USER="nzbhydra2"
+PRIV_PREFIX=sc-
+SYNOUSER_PREFIX=svc-
+if [ -n "${SYNOPKG_DSM_VERSION_MAJOR}" -a "${SYNOPKG_DSM_VERSION_MAJOR}" -lt 6 ]; then EFF_USER="${SYNOUSER_PREFIX}${USER}"; else EFF_USER="${PRIV_PREFIX}${USER}"; fi
+# Service port
+SERVICE_PORT="5076"
+# start-stop-status script redirect stdout/stderr to LOG_FILE
+LOG_FILE="${SYNOPKG_PKGDEST}/var/${SYNOPKG_PKGNAME}.log"
+# Service command has to deliver its pid into PID_FILE
+PID_FILE="${SYNOPKG_PKGDEST}/var/${SYNOPKG_PKGNAME}.pid"
+
+# Invoke shell function if available
+call_func ()
+{
+    FUNC=$1
+    if type "$FUNC" | grep -q 'function' 2>/dev/null; then
+        echo "Invoke $FUNC" >> ${INST_LOG}
+        eval ${FUNC}
+    fi
+}
+
+SYSTEM_PROFILE="/etc/profile"
+
+# get system profile env
+. ${SYSTEM_PROFILE}
+
+PYTHON_DIR="/usr/local/python"
+GIT_DIR="/usr/local/git"
+PATH="${SYNOPKG_PKGDEST}/env/bin:${PYTHON_DIR}/bin:${GIT_DIR}/bin:${PATH}"
+PYTHON="${SYNOPKG_PKGDEST}/env/bin/python"
+VIRTUALENV="${PYTHON_DIR}/bin/virtualenv"
+NZBHYDRA2="${SYNOPKG_PKGDEST}/share/nzbhydra2/nzbhydra2wrapper.py"
+DATA_DIR="${SYNOPKG_PKGDEST}/var/"
+
+SERVICE_COMMAND="${PYTHON} ${NZBHYDRA2} --datafolder ${DATA_DIR} --pidfile ${PID_FILE} --daemon --nobrowser"
+
+service_postinst ()
+{
+    # Create a Python virtualenv
+    ${VIRTUALENV} --system-site-packages ${SYNOPKG_PKGDEST}/env >> ${INST_LOG} 2>&1
+
+    # Remove legacy user
+    # Commands of busybox from spk/python
+    delgroup "${USER}" "users" >> ${INST_LOG}
+    deluser "${USER}" >> ${INST_LOG}
+}
